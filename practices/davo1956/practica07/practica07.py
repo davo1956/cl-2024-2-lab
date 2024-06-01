@@ -53,59 +53,298 @@ El propósito de la medida ChrF (Character F-score) en el contexto del Shared Ta
 2. Variedad de tareas y lenguajes: Diferentes tareas de traducción y lenguajes pueden requerir métricas de evaluación diferentes. Al utilizar otras medidas como ChrF, se puede obtener una evaluación más completa que tenga en cuenta la diversidad lingüística y las características específicas de la tarea.
 """
 
-import os
-import subprocess
-import requests
+!git clone https://github.com/ymoslem/MT-Preparation.git
+!pip3 install -r MT-Preparation/requirements.txt
 
-# Función para descargar archivos
-def download_file(url, file_name):
-    with open(file_name, "wb") as f:
-        response = requests.get(url)
-        f.write(response.content)
+!pip install OpenNMT-py -U
 
-# Paso 1: Descargar los conjuntos de datos
-urls = [
-    "https://github.com/AmericasNLP/americasnlp2021/raw/main/data/train.es",
-    "https://github.com/AmericasNLP/americasnlp2021/raw/main/data/train.en",
-    "https://github.com/AmericasNLP/americasnlp2021/raw/main/data/dev.es",
-    "https://github.com/AmericasNLP/americasnlp2021/raw/main/data/dev.en"
-]
+# Importa el módulo 'drive' desde la biblioteca 'google.colab'
+from google.colab import drive
 
-for url in urls:
-    file_name = url.split("/")[-1]
-    download_file(url, file_name)
+# Monta Google Drive en el directorio '/content/drive'
+drive.mount('/content/drive')
 
-# Paso 2: Instalar OpenNMT-py
-!pip install OpenNMT-py
+# Importa la función de echo y git del sistema
+# Esto es necesario para clonar repositorios y manipular archivos en el entorno
 
-# Paso 3: Preprocesamiento de datos
-subprocess.run("onmt_preprocess -train_src train.es -train_tgt train.en -valid_src dev.es -valid_tgt dev.en -save_data data -overwrite", shell=True)
+# Imprime un mensaje que indica el inicio del proceso de clonación del repositorio AmericasNLP
+!echo "---Cloning AmericasNLP repository---"
 
-# Paso 4: Configuración y entrenamiento del modelo
-model_config = """
-model_dir: modelo
+# Clona el repositorio AmericasNLP desde GitHub a tu entorno local
+!git clone https://github.com/AmericasNLP/americasnlp2021.git
+
+# Imprime un mensaje que indica el inicio del proceso de concatenación de los conjuntos de datos en español
+!echo "---Concatenating Spanish dev and train datasets---"
+
+# Concatena los archivos de desarrollo (dev.es) y de entrenamiento (train.es) en español
+# Los archivos concatenados se guardan en MT-Preparation/americasnlp2021.es-nah.es
+!cat americasnlp2021/data/nahuatl-spanish/dev.es americasnlp2021/data/nahuatl-spanish/train.es > MT-Preparation/americasnlp2021.es-nah.es
+
+# Imprime un mensaje que indica el inicio del proceso de concatenación de los conjuntos de datos en náhuatl
+!echo "---Concatenating Nahuatl dev and train datasets---"
+
+# Concatena los archivos de desarrollo (dev.nah) y de entrenamiento (train.nah) en náhuatl
+# Los archivos concatenados se guardan en MT-Preparation/americasnlp2021.nah-es.nah
+!cat americasnlp2021/data/nahuatl-spanish/dev.nah americasnlp2021/data/nahuatl-spanish/train.nah > MT-Preparation/americasnlp2021.nah-es.nah
+
+# Prepara los datos necesarios para el procesamiento
+
+# Imprime un mensaje indicando que se contará el número de líneas en el conjunto de datos original de náhuatl
+!echo "---Counting lines in original Nahuatl dataset---"
+
+# Cuenta el número de líneas en el archivo nahuatl-español concatenado
+!wc -l MT-Preparation/americasnlp2021.nah-es.nah
+
+# Imprime un mensaje indicando que se contará el número de líneas en el conjunto de datos original de español
+!echo "---Counting lines in original Spanish dataset---"
+
+# Cuenta el número de líneas en el archivo español-nahuatl concatenado
+!wc -l MT-Preparation/americasnlp2021.es-nah.es
+
+# Imprime un mensaje indicando que se ejecutará el script de filtrado
+!echo "---Running filter.py script---"
+
+# Ejecuta el script de filtrado 'filter.py' que probablemente limpia y preprocesa los datos
+# Los argumentos son: el archivo de datos en náhuatl, el archivo de datos en español, el idioma de origen ('nah') y el idioma de destino ('es')
+!python3 MT-Preparation/filtering/filter.py MT-Preparation/americasnlp2021.nah-es.nah MT-Preparation/americasnlp2021.es-nah.es nah es
+
+# Imprime un mensaje indicando que se contará el número de líneas en el conjunto de datos de náhuatl filtrado
+!echo "---Counting lines in filtered Nahuatl dataset---"
+
+# Cuenta el número de líneas en el archivo de náhuatl filtrado
+!wc -l MT-Preparation/americasnlp2021.nah-es.nah-filtered.nah
+
+# Imprime un mensaje indicando que se contará el número de líneas en el conjunto de datos de español filtrado
+!echo "---Counting lines in filtered Spanish dataset---"
+
+# Cuenta el número de líneas en el archivo de español filtrado
+!wc -l MT-Preparation/americasnlp2021.es-nah.es-filtered.es
+
+!echo "---Listing files in MT-Preparation/subwording directory---"
+!ls MT-Preparation/subwording/
+
+!echo "---Running 1-train_unigram.py script---"
+!python3 MT-Preparation/subwording/1-train_unigram.py MT-Preparation/americasnlp2021.nah-es.nah-filtered.nah MT-Preparation/americasnlp2021.es-nah.es-filtered.es
+
+# Listado y procesamiento de archivos en el directorio actual
+
+# Imprime un mensaje indicando que se listarán los archivos en el directorio actual
+!echo "---Listing files in current directory---"
+
+# Lista los archivos en el directorio actual
+!ls
+
+# Imprime un mensaje indicando que se ejecutará el script 2-subword.py
+!echo "---Running 2-subword.py script---"
+
+# Ejecuta el script de subwording '2-subword.py' con los modelos de subword y los archivos filtrados como argumentos
+# Los argumentos son: el modelo de subword para el idioma de origen (source.model), el modelo de subword para el idioma de destino (target.model),
+# el archivo filtrado de náhuatl y el archivo filtrado de español
+!python3 MT-Preparation/subwording/2-subword.py source.model target.model MT-Preparation/americasnlp2021.nah-es.nah-filtered.nah MT-Preparation/americasnlp2021.es-nah.es-filtered.es
+
+# Imprime un mensaje indicando que se mostrarán las primeras 3 líneas de los conjuntos de datos filtrados de náhuatl y español
+!echo "---First 3 lines of filtered Nahuatl and Spanish datasets---"
+
+# Muestra las primeras 3 líneas del archivo de náhuatl filtrado y las primeras 3 líneas del archivo de español filtrado, separadas por "-----"
+!head -n 3 MT-Preparation/americasnlp2021.nah-es.nah-filtered.nah && echo "-----" && head -n 3 MT-Preparation/americasnlp2021.es-nah.es-filtered.es
+
+# Imprime un mensaje indicando que se mostrarán las primeras 10 líneas de los conjuntos de datos con subwording de náhuatl y español
+!echo "---First 10 lines of subworded Nahuatl and Spanish datasets---"
+
+# Muestra las primeras 10 líneas del archivo de náhuatl con subwording y las primeras 10 líneas del archivo de español con subwording, separadas por "---"
+!head -n 10 MT-Preparation/americasnlp2021.nah-es.nah-filtered.nah.subword && echo "---" && head -n 10 MT-Preparation/americasnlp2021.es-nah.es-filtered.es.subword
+
+# División de los datos en conjuntos de entrenamiento, desarrollo y prueba
+
+# Imprime un mensaje indicando que se ejecutará el script de división en conjuntos de entrenamiento, desarrollo y prueba
+!echo "---Running train_dev_test_split.py---"
+
+# Ejecuta el script 'train_dev_test_split.py' que divide los datos en conjuntos de entrenamiento, desarrollo y prueba
+# Los argumentos son: el tamaño del conjunto de desarrollo (1000), el tamaño del conjunto de prueba (1000),
+# el archivo de datos en náhuatl con subwording y el archivo de datos en español con subwording
+!python3 MT-Preparation/train_dev_split/train_dev_test_split.py 1000 1000 MT-Preparation/americasnlp2021.nah-es.nah-filtered.nah.subword MT-Preparation/americasnlp2021.es-nah.es-filtered.es.subword
+
+# Imprime un mensaje indicando que se contarán las líneas en los archivos con subwording
+!echo "---Counting lines in subword files---"
+
+# Cuenta el número de líneas en todos los archivos con extensión '.subword.*' en el directorio MT-Preparation
+!wc -l MT-Preparation/*.subword.*
+
+# Imprime un mensaje indicando que se mostrará la primera línea de cada archivo dividido (train, dev, test)
+!echo "---First line of each file---"
+
+# Muestra la primera línea de cada archivo con extensión '.train', '.dev' y '.test' en el directorio MT-Preparation
+!head -n 1 MT-Preparation/*.{train,dev,test}
+
+# Imprime un mensaje indicando que se mostrará la última línea de cada archivo dividido (train, dev, test)
+!echo "---Last line of each file---"
+
+# Muestra la última línea de cada archivo con extensión '.train', '.dev' y '.test' en el directorio MT-Preparation
+!tail -n 1 MT-Preparation/*.{train,dev,test}
+
+# Define los nombres de los archivos de datos fuente y objetivo con subwording
+SRC_DATA_NAME = "MT-Preparation/americasnlp2021.nah-es.nah-filtered.nah.subword"
+TARGET_DATA_NAME = "MT-Preparation/americasnlp2021.es-nah.es-filtered.es.subword"
+
+# Crea una cadena de texto para la configuración utilizando las rutas de los archivos de datos definidos anteriormente
+config = f"""
+## Where the samples will be written
+save_data: run
+
+# Rutas de archivos de entrenamiento
+# (previamente aplicado subword tokenization)
 data:
-    train: data.train
-    valid: data.dev
-save_model: modelo/model
-train_steps: 10000
-save_checkpoint_steps: 500
+    corpus_1:
+        path_src: {SRC_DATA_NAME}.train
+        path_tgt: {TARGET_DATA_NAME}.train
+        transforms: [filtertoolong]
+    valid:
+        path_src: {SRC_DATA_NAME}.dev
+        path_tgt: {TARGET_DATA_NAME}.dev
+        transforms: [filtertoolong]
+
+# Vocabularios (serán generados por `onmt_build_vocab`)
+src_vocab: run/source.vocab
+tgt_vocab: run/target.vocab
+
+# Tamaño del vocabulario
+# (debe concordar con el parametro usado en el algoritmo de subword tokenization)
+src_vocab_size: 50000
+tgt_vocab_size: 50000
+
+# Filtrado sentencias de longitud mayor a n
+# actuara si [filtertoolong] está presente
+src_seq_length: 150
+src_seq_length: 150
+
+# Tokenizadores
+src_subword_model: source.model
+tgt_subword_model: target.model
+
+# Archivos donde se guardaran los logs y los checkpoints de modelos
+log_file: train.log
+save_model: models/model.nahes
+
+# Condición de paro si no se obtienen mejoras significativas
+# despues de n validaciones
+early_stopping: 4
+
+# Guarda un checkpoint del modelo cada n steps
+save_checkpoint_steps: 1000
+
+# Mantiene los n ultimos checkpoints
+keep_checkpoint: 3
+
+# Reproductibilidad
+seed: 3435
+
+# Entrena el modelo maximo n steps
+# Default: 100,000
+train_steps: 3000
+
+# Corre el set de validaciones (*.dev) despues de n steps
+# Defatul: 10,000
+valid_steps: 1000
+
+warmup_steps: 1000
+report_every: 100
+
+# Numero de GPUs y sus ids
 world_size: 1
 gpu_ranks: [0]
+
+# Batching
+bucket_size: 262144
+num_workers: 0
+batch_type: "tokens"
+batch_size: 4096
+valid_batch_size: 2048
+max_generator_batches: 2
+accum_count: [4]
+accum_steps: [0]
+
+# Configuración del optimizador
+model_dtype: "fp16"
+optim: "adam"
+learning_rate: 2
+decay_method: "noam"
+adam_beta2: 0.998
+max_grad_norm: 0
+label_smoothing: 0.1
+param_init: 0
+param_init_glorot: true
+normalization: "tokens"
+
+# Configuración del Modelo
+encoder_type: transformer
+decoder_type: transformer
+position_encoding: true
+enc_layers: 6
+dec_layers: 6
+heads: 8
+hidden_size: 512
+word_vec_size: 512
+transformer_ff: 2048
+dropout_steps: [0]
+dropout: [0.1]
+attention_dropout: [0.1]
 """
-with open("modelo.yaml", "w") as f:
-    f.write(model_config)
 
-# Entrenar el modelo
-subprocess.run("onmt_train -config modelo.yaml", shell=True)
+# Crea un archivo de configuración vacío llamado 'config.yaml'
+!echo "" > ./config.yaml
 
-# Paso 5: Traducción
-subprocess.run("onmt_translate -model modelo/model_step_10000.pt -src dev.es -output pred.txt -gpu 0", shell=True)
+# Escribe la configuración en el archivo 'config.yaml'
+with open("./config.yaml", "w+") as config_yaml:
+  config_yaml.write(config)
 
-# Paso 6: Evaluación
-subprocess.run("onmt_score -ref dev.en -hyp pred.txt", shell=True)
+# Imprime el contenido del archivo de configuración para verificación
+!cat ./config.yaml
 
-# Paso 7: Comparación con el baseline
+# Proceso de traducción
 
-# Paso 8: Inclusión del archivo *.translated.desubword
-subprocess.run("sed 's/@@ //g' pred.txt > pred.desubword", shell=True)
+# Listar los modelos en el directorio de modelos
+!echo "---Listing models---"
+!ls models
+
+# El bloque de tiempo de IPython está comentado para asegurar compatibilidad con Python estándar.
+# %%time
+# Ejecuta el comando de traducción utilizando el modelo entrenado
+# !onmt_translate -model models/model.nahes_step_3000.pt -src MT-Preparation/americasnlp2021.nah-es.nah-filtered.nah.subword.test -output MT-Preparation/americasnlp2021.es.practice.translated -gpu 0 -min_length 1
+
+# Mostrar las últimas líneas del conjunto de datos de prueba
+!echo "---Last few lines of the test dataset---"
+!tail MT-Preparation/americasnlp2021.nah-es.nah-filtered.nah.subword.test
+
+# Mostrar las últimas líneas del conjunto de datos traducido
+!echo "---Last few lines of the translated dataset---"
+!tail MT-Preparation/americasnlp2021.es.practice.translated
+
+# Ejecutar el script 3-desubword.py para eliminar la segmentación subword del conjunto de datos de prueba
+!echo "---Running 3-desubword.py script on test dataset---"
+!python MT-Preparation/subwording/3-desubword.py source.model MT-Preparation/americasnlp2021.es-nah.es-filtered.es.subword.test
+
+# Ejecutar el script 3-desubword.py para eliminar la segmentación subword del conjunto de datos traducido
+!echo "---Running 3-desubword.py script on translated dataset---"
+!python MT-Preparation/subwording/3-desubword.py target.model MT-Preparation/americasnlp2021.es.practice.translated
+
+# Mostrar las últimas líneas del conjunto de datos traducido y desubwordizado
+!echo "---Last few lines of the desubworded translated dataset---"
+!tail MT-Preparation/americasnlp2021.es.practice.translated.desubword
+
+# Evaluación del modelo
+
+# Clonar el repositorio MT-Evaluation desde GitHub
+!echo "---Cloning MT-Evaluation repository---"
+!git clone https://github.com/ymoslem/MT-Evaluation.git
+
+# Instalar las dependencias necesarias para MT-Evaluation
+!echo "---Installing requirements for MT-Evaluation---"
+!pip install -r MT-Evaluation/requirements.txt
+
+# Desegmentar subwords del archivo de prueba utilizando el script 3-desubword.py
+!echo "---Desegmenting subwords in the test dataset---"
+!python MT-Preparation/subwording/3-desubword.py target.model MT-Preparation/americasnlp2021.es-nah.es-filtered.es.subword.test
+
+# Ejecutar el script compute-bleu.py para calcular la puntuación BLEU
+!echo "---Calculating BLEU score---"
+!python MT-Evaluation/BLEU/compute-bleu.py MT-Preparation/americasnlp2021.es-nah.es-filtered.es.subword.test.desubword MT-Preparation/americasnlp2021.es.practice.translated.desubword
